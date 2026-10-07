@@ -172,8 +172,9 @@ const CONFIG = {
   JAM_BALAS: '1 x 24 jam pada hari sekolah',
   KATEGORI: ['Akademik','Pertemanan','Keluarga','Perundungan','Kesehatan mental','Karier dan masa depan','Lainnya'],
   BANTUAN: [
+    { nama: 'Guru BK SMP NEGERI 1 KALIWEDI', kontak: 'WhatsApp +62 812-2406-701' },
     { nama: 'Layanan Sehat Jiwa Kemenkes', kontak: '119 lalu tekan 8' },
-    { nama: 'SAPA 129 (kekerasan pada anak dan perempuan)', kontak: '129, atau WhatsApp 08122406701' }
+    { nama: 'SAPA 129 (kekerasan pada anak dan perempuan)', kontak: '129, atau WhatsApp 08111-129-129' }
   ]
 };
 /* ===================================================================== */
@@ -197,6 +198,10 @@ function h(tag, props, ...kids) {
   }
   kids.flat().forEach(c => { if (c == null || c === false) return; e.append(c.nodeType ? c : document.createTextNode(String(c))); });
   return e;
+}
+function fill(el, ...kids) {
+  el.replaceChildren();
+  kids.flat(Infinity).forEach(c => { if (c == null || c === false) return; el.append(c.nodeType ? c : document.createTextNode(String(c))); });
 }
 const fmt = iso => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const normCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -227,7 +232,7 @@ window.addEventListener('hashchange', route);
 
 /* ---------- beranda ---------- */
 function viewHome() {
-  $app.append(
+  fill($app,
     !configured && configWarning(),
     h('h1', {}, 'Ada yang ingin kamu ceritakan? Tulis di sini, tanpa nama.'),
     h('p', { class: 'lead' }, 'Tim BK ' + CONFIG.NAMA_SEKOLAH + ' siap membaca dan membalas. Kamu tidak perlu login dan tidak perlu menyebutkan siapa dirimu.'),
@@ -255,7 +260,7 @@ function viewHome() {
 
 /* ---------- kirim pesan ---------- */
 function viewKirim() {
-  if (!configured) { $app.append(configWarning()); return; }
+  if (!configured) { fill($app, configWarning()); return; }
   const kat = h('select', { id: 'kat' }, h('option', { value: '' }, 'Pilih topik'), CONFIG.KATEGORI.map(k => h('option', { value: k }, k)));
   const msg = h('textarea', { id: 'msg', maxlength: '3000', placeholder: 'Tulis apa yang kamu alami atau rasakan. Tidak ada jawaban yang salah.' });
   const count = h('div', { class: 'counter', 'aria-live': 'off' }, '0 / 3000');
@@ -274,7 +279,7 @@ function viewKirim() {
     showTicket(data);
   });
 
-  $app.append(
+  fill($app,
     h('h1', {}, 'Tulis pesan baru'),
     h('p', { class: 'muted' }, 'Jangan menuliskan nama lengkapmu atau orang lain kalau ingin tetap anonim.'),
     h('label', { for: 'kat' }, 'Topik'), kat,
@@ -292,7 +297,7 @@ function showTicket(code) {
     try { await navigator.clipboard.writeText(code); copy.textContent = 'Tersalin'; }
     catch { copy.textContent = 'Blok dan salin manual'; }
   });
-  $app.replaceChildren(
+  fill($app,
     h('h1', {}, 'Pesanmu sudah terkirim'),
     h('p', { class: 'lead' }, 'Ini kode tiketmu. Kode ini hanya muncul sekali dan tidak bisa dipulihkan, karena kami memang tidak tahu siapa kamu.'),
     h('div', { class: 'ticket', role: 'group', 'aria-label': 'Kode tiket' },
@@ -312,7 +317,7 @@ function showTicket(code) {
 
 /* ---------- cek balasan (siswa) ---------- */
 function viewCek() {
-  if (!configured) { $app.append(configWarning()); return; }
+  if (!configured) { fill($app, configWarning()); return; }
   const input = h('input', { type: 'text', id: 'code', placeholder: 'contoh: 7K3MQ-92QXA', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false' });
   const err = h('p', { class: 'error', role: 'alert' });
   const btn = h('button', { class: 'btn primary', type: 'button' }, 'Buka percakapan');
@@ -331,7 +336,7 @@ function viewCek() {
   btn.addEventListener('click', () => load(input.value));
   input.addEventListener('keydown', e => { if (e.key === 'Enter') load(input.value); });
 
-  $app.append(
+  fill($app,
     h('h1', {}, 'Baca balasan'),
     h('p', { class: 'muted' }, 'Masukkan kode tiket yang kamu terima saat mengirim pesan.'),
     h('label', { for: 'code' }, 'Kode tiket'), input, err,
@@ -359,7 +364,7 @@ function renderStudentThread(out, code, t) {
     const { data } = await sb.rpc('get_thread', { p_code: code });
     if (data) renderStudentThread(out, code, data);
   });
-  out.replaceChildren(
+  fill(out,
     h('div', { class: 'card' },
       h('div', { class: 'bar' },
         h('h2', { style: 'margin:0' }, t.kategori),
@@ -373,12 +378,12 @@ function renderStudentThread(out, code, t) {
 
 /* ---------- guru BK ---------- */
 async function viewGuru() {
-  if (!configured) { $app.append(configWarning()); return; }
+  if (!configured) { fill($app, configWarning()); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return guruLogin();
   const { data: ok } = await sb.rpc('is_staff');
   if (!ok) {
-    $app.replaceChildren(
+    fill($app,
       h('h1', {}, 'Akun belum terdaftar'),
       h('p', {}, 'Akun ini berhasil masuk, tetapi belum terdaftar sebagai anggota Tim BK. Minta admin menambahkannya.'),
       h('div', { class: 'actions' }, logoutBtn()));
@@ -407,7 +412,7 @@ function guruLogin() {
   }
   btn.addEventListener('click', go);
   pass.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-  $app.replaceChildren(
+  fill($app,
     h('h1', {}, 'Masuk Tim BK'),
     h('p', { class: 'muted' }, 'Khusus guru BK yang sudah didaftarkan.'),
     h('label', { for: 'em' }, 'Email'), email,
@@ -416,10 +421,10 @@ function guruLogin() {
 }
 
 async function guruList(filter) {
-  $app.replaceChildren(h('p', { class: 'muted' }, 'Memuat...'));
+  fill($app, h('p', { class: 'muted' }, 'Memuat...'));
   const { data, error } = await sb.from('threads').select('id,nomor,kategori,status,mendesak,created_at,updated_at')
     .order('mendesak', { ascending: false }).order('updated_at', { ascending: false }).limit(300);
-  if (error) { $app.replaceChildren(h('div', { class: 'banner' }, friendly(error))); return; }
+  if (error) { fill($app, h('div', { class: 'banner' }, friendly(error))); return; }
 
   const counts = { semua: data.length, baru: 0, diproses: 0, selesai: 0 };
   data.forEach(t => counts[t.status]++);
@@ -434,7 +439,7 @@ async function guruList(filter) {
   const refresh = h('button', { class: 'btn small', type: 'button' }, 'Muat ulang');
   refresh.addEventListener('click', () => guruList(filter));
 
-  $app.replaceChildren(
+  fill($app,
     h('div', { class: 'bar' }, h('h1', { style: 'margin:0' }, 'Kotak masuk'), h('div', { style: 'display:flex;gap:8px' }, refresh, logoutBtn())),
     tabs,
     shown.length === 0 && h('p', { class: 'muted' }, 'Belum ada pesan di kategori ini.'),
@@ -451,12 +456,12 @@ async function guruList(filter) {
 }
 
 async function guruThread(id, backFilter) {
-  $app.replaceChildren(h('p', { class: 'muted' }, 'Memuat...'));
+  fill($app, h('p', { class: 'muted' }, 'Memuat...'));
   const [{ data: t, error: e1 }, { data: msgs, error: e2 }] = await Promise.all([
     sb.from('threads').select('*').eq('id', id).single(),
     sb.from('messages').select('sender,body,created_at').eq('thread_id', id).order('created_at')
   ]);
-  if (e1 || e2) { $app.replaceChildren(h('div', { class: 'banner' }, friendly(e1 || e2))); return; }
+  if (e1 || e2) { fill($app, h('div', { class: 'banner' }, friendly(e1 || e2))); return; }
 
   const back = h('button', { class: 'btn small', type: 'button' }, 'Kembali ke kotak masuk');
   back.addEventListener('click', () => guruList(backFilter));
@@ -482,7 +487,7 @@ async function guruThread(id, backFilter) {
     guruThread(id, backFilter);
   });
 
-  $app.replaceChildren(
+  fill($app,
     back,
     h('div', { class: 'bar', style: 'margin-top:16px' },
       h('h1', { style: 'margin:0;font-size:28px' }, 'Kasus #' + t.nomor),
