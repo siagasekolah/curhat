@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Siaga Sekolah</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #eef4f5;
+    --card: #ffffff;
+    --ink: #13262d;
+    --muted: #4d6169;
+    --line: #d3e0e3;
+    --primary: #0f5e7a;
+    --primary-ink: #ffffff;
+    --tint: #dcecf0;
+    --ticket: #f6c453;
+    --ticket-ink: #2b2100;
+    --danger: #b3261e;
+    --ok: #1b7a4b;
+    --radius: 14px;
+    --font: "Avenir Next", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1a1f; --card: #15272e; --ink: #e6f0f2; --muted: #9db4bb;
+      --line: #27404a; --primary: #58b7d4; --primary-ink: #04222c; --tint: #1c3540;
+      --ticket: #f2bd45; --danger: #ff8a80; --ok: #5fd39a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font); font-size: 17px; line-height: 1.55;
+  }
+  a { color: var(--primary); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+  header.top { padding: 18px 0 6px; }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 800; letter-spacing: -0.01em; font-size: 19px; }
+  .brand svg { width: 30px; height: 30px; }
+  main { padding: 18px 0 40px; min-height: 60vh; }
+  footer { border-top: 1px solid var(--line); padding: 20px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+
+  h1 { font-size: clamp(30px, 6vw, 42px); line-height: 1.12; letter-spacing: -0.025em; margin: 12px 0 14px; font-weight: 800; }
+  h2 { font-size: 22px; line-height: 1.25; letter-spacing: -0.015em; margin: 0 0 10px; }
+  h3 { font-size: 17px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .lead { font-size: 19px; color: var(--muted); max-width: 34em; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin: 16px 0; }
+  .note { background: var(--tint); border-radius: var(--radius); padding: 16px 18px; margin: 16px 0; }
+  .note p:last-child { margin-bottom: 0; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font: inherit; font-weight: 700; padding: 13px 22px; border-radius: 12px;
+    border: 2px solid var(--primary); background: transparent; color: var(--primary);
+    cursor: pointer; text-decoration: none; min-height: 48px;
+  }
+  .btn.primary { background: var(--primary); color: var(--primary-ink); }
+  .btn.small { min-height: 38px; padding: 7px 14px; font-size: 15px; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn:hover:not(:disabled) { filter: brightness(1.08); }
+  :focus-visible { outline: 3px solid var(--ticket); outline-offset: 2px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+
+  label { display: block; font-weight: 700; margin: 14px 0 6px; }
+  input[type=text], input[type=email], input[type=password], select, textarea {
+    width: 100%; font: inherit; color: var(--ink); background: var(--card);
+    border: 2px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  }
+  textarea { resize: vertical; min-height: 150px; }
+  input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; margin: 16px 0; }
+  .check input { width: 22px; height: 22px; margin-top: 3px; flex: none; }
+  .counter { text-align: right; font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .error { color: var(--danger); font-weight: 600; margin: 10px 0 0; min-height: 1.4em; }
+
+  .steps { display: grid; gap: 12px; margin: 18px 0; padding: 0; list-style: none; counter-reset: s; }
+  .steps li { position: relative; padding-left: 46px; counter-increment: s; }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 0; width: 32px; height: 32px;
+    border-radius: 50%; background: var(--tint); color: var(--primary);
+    display: grid; place-items: center; font-weight: 800;
+  }
+
+  /* Tiket kode - satu-satunya elemen yang dibuat mencolok */
+  .ticket {
+    background: var(--ticket); color: var(--ticket-ink); border-radius: 16px;
+    padding: 22px 20px; margin: 18px 0; position: relative; text-align: center;
+    -webkit-mask: radial-gradient(circle 12px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+                  radial-gradient(circle 12px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+            mask: radial-gradient(circle 12px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat,
+                  radial-gradient(circle 12px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+  .ticket .lbl { font-size: 14px; font-weight: 600; opacity: .8; }
+  .ticket .code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(30px, 9vw, 46px); font-weight: 800; letter-spacing: .06em; margin: 6px 0 12px;
+    user-select: all;
+  }
+  .ticket .btn { border-color: var(--ticket-ink); color: var(--ticket-ink); }
+
+  .chat { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+  .bubble { max-width: 88%; padding: 12px 16px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble .who { font-size: 13px; font-weight: 700; margin-bottom: 2px; opacity: .8; }
+  .bubble .when { font-size: 12px; opacity: .65; margin-top: 4px; }
+  .bubble.siswa { align-self: flex-end; background: var(--primary); color: var(--primary-ink); border-bottom-right-radius: 4px; }
+  .bubble.guru { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: var(--tint); color: var(--primary); }
+  .badge.baru { background: #fde7c2; color: #6b4200; }
+  .badge.diproses { background: var(--tint); color: var(--primary); }
+  .badge.selesai { background: #d5f0e1; color: #14603b; }
+  .badge.mendesak { background: #fbd5d1; color: #8a1c14; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .badge.baru { background: #4a3810; color: #ffd98a; }
+    :root:not([data-theme="light"]) .badge.selesai { background: #16402c; color: #9be6bd; }
+    :root:not([data-theme="light"]) .badge.mendesak { background: #4f1e1a; color: #ffb3ab; }
+  }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .tab { font: inherit; font-weight: 600; border: 2px solid var(--line); background: var(--card); color: var(--ink); border-radius: 99px; padding: 6px 14px; cursor: pointer; }
+  .tab[aria-pressed="true"] { border-color: var(--primary); background: var(--tint); color: var(--primary); }
+  .row { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin: 10px 0; cursor: pointer; }
+  .row:hover { border-color: var(--primary); }
+  .row .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 4px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+  .banner { background: #fbd5d1; color: #6b1610; border-radius: 12px; padding: 12px 16px; margin: 12px 0; font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .ticket { animation: pop .5s ease-out both; }
+    @keyframes pop { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#/" aria-label="Siaga Sekolah, kembali ke beranda">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 4 8v8c0 7 5 11.5 12 13 7-1.500 12-6 12-13V8L16 3z" fill="currentColor" style="color:var(--primary)"/><path d="M10.500 16.500l3.500 3.500 7.500-8" fill="none" stroke="var(--primary-ink)" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="brandName">Siaga Sekolah</span>
+    </a>
+  </div>
+</header>
+
+<main><div class="wrap" id="app"></div></main>
+
+<footer>
+  <div class="wrap">
+    <span id="footSchool"></span>
+    <a href="#/guru">Masuk Tim BK</a>
+  </div>
+</footer>
+
+<script>
+/* =====================================================================
+   PENGATURAN - hanya bagian ini yang perlu Anda ubah
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: 'https://fztaqrnzotufwxxdwhrx.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_e5pqEbE--gHbaU0UWclHIg_D6s5zHwD',   // kunci "anon" atau "publishable", BUKAN service_role
+  NAMA_APP: 'Siaga Sekolah',
+  NAMA_SEKOLAH: 'SMP NEGERI 1 KALIWEDI',
+  JAM_BALAS: '1 x 24 jam pada hari sekolah',
+  KATEGORI: ['Akademik','Pertemanan','Keluarga','Perundungan','Kesehatan mental','Karier dan masa depan','Lainnya'],
+  BANTUAN: [
+    { nama: 'Layanan Sehat Jiwa Kemenkes', kontak: '119 lalu tekan 8' },
+    { nama: 'SAPA 129 (kekerasan pada anak dan perempuan)', kontak: '129, atau WhatsApp 08122406701' }
+  ]
+};
+/* ===================================================================== */
+
+const $app = document.getElementById('app');
+document.getElementById('brandName').textContent = CONFIG.NAMA_APP;
+document.getElementById('footSchool').textContent = CONFIG.NAMA_APP + ' · ' + CONFIG.NAMA_SEKOLAH;
+document.title = CONFIG.NAMA_APP + ' - ' + CONFIG.NAMA_SEKOLAH;
+
+const configured = !CONFIG.SUPABASE_KEY.startsWith('TEMPEL');
+const sb = configured ? supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY) : null;
+
+/* ---------- pembantu ---------- */
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, '');
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => { if (c == null || c === false) return; e.append(c.nodeType ? c : document.createTextNode(String(c))); });
+  return e;
+}
+const fmt = iso => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const normCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+const STATUS = { baru: 'Baru', diproses: 'Sedang diproses', selesai: 'Selesai' };
+const friendly = e => (e && e.message) ? e.message : 'Terjadi kesalahan. Periksa koneksi internet lalu coba lagi.';
+
+function helpBox() {
+  return h('div', { class: 'note' },
+    h('h3', {}, 'Butuh bantuan sekarang juga?'),
+    h('p', {}, 'Jika kamu atau orang lain dalam bahaya, jangan menunggu balasan di sini. Hubungi guru atau orang dewasa yang kamu percaya, atau layanan berikut:'),
+    h('ul', { style: 'margin:0;padding-left:20px' }, CONFIG.BANTUAN.map(b => h('li', {}, h('strong', {}, b.nama + ': '), b.kontak)))
+  );
+}
+
+function configWarning() {
+  return h('div', { class: 'banner', role: 'alert' }, 'Aplikasi belum tersambung ke database. Buka berkas index.html, lalu isi SUPABASE_KEY pada bagian PENGATURAN.');
+}
+
+/* ---------- router ---------- */
+const routes = { '': viewHome, kirim: viewKirim, cek: viewCek, guru: viewGuru };
+function route() {
+  const r = location.hash.replace(/^#\/?/, '');
+  $app.replaceChildren();
+  (routes[r] || viewHome)();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+
+/* ---------- beranda ---------- */
+function viewHome() {
+  $app.append(
+    !configured && configWarning(),
+    h('h1', {}, 'Ada yang ingin kamu ceritakan? Tulis di sini, tanpa nama.'),
+    h('p', { class: 'lead' }, 'Tim BK ' + CONFIG.NAMA_SEKOLAH + ' siap membaca dan membalas. Kamu tidak perlu login dan tidak perlu menyebutkan siapa dirimu.'),
+    h('div', { class: 'actions' },
+      h('a', { class: 'btn primary', href: '#/kirim' }, 'Tulis pesan baru'),
+      h('a', { class: 'btn', href: '#/cek' }, 'Baca balasan dengan kode tiket')
+    ),
+    h('div', { class: 'card' },
+      h('h2', {}, 'Cara kerjanya'),
+      h('ol', { class: 'steps' },
+        h('li', {}, h('strong', {}, 'Tulis pesanmu.'), ' Pilih topik, lalu ceritakan dengan bebas.'),
+        h('li', {}, h('strong', {}, 'Simpan kode tiketmu.'), ' Kode ini muncul satu kali saja. Foto layar atau catat di tempat aman.'),
+        h('li', {}, h('strong', {}, 'Kembali dengan kode itu.'), ' Kamu bisa membaca balasan Tim BK dan membalas lagi. Balasan dijawab paling lambat ' + CONFIG.JAM_BALAS + '.')
+      )
+    ),
+    h('div', { class: 'card' },
+      h('h2', {}, 'Yang perlu kamu tahu'),
+      h('p', {}, 'Aplikasi ini tidak meminta nama, kelas, atau email. Jangan menuliskan nama lengkapmu kalau kamu ingin tetap anonim.'),
+      h('p', {}, 'Karena tidak tahu siapa kamu, Tim BK tidak bisa menghubungimu duluan. Kamulah yang perlu kembali membuka balasan dengan kode tiket.'),
+      h('p', {}, 'Kalau ceritamu menunjukkan ada yang dalam bahaya serius, misalnya ingin menyakiti diri, mengalami kekerasan atau pelecehan, Tim BK akan berusaha mengambil langkah yang perlu untuk melindungi, dan akan menuliskannya dengan jujur di balasan.')
+    ),
+    helpBox()
+  );
+}
+
+/* ---------- kirim pesan ---------- */
+function viewKirim() {
+  if (!configured) { $app.append(configWarning()); return; }
+  const kat = h('select', { id: 'kat' }, h('option', { value: '' }, 'Pilih topik'), CONFIG.KATEGORI.map(k => h('option', { value: k }, k)));
+  const msg = h('textarea', { id: 'msg', maxlength: '3000', placeholder: 'Tulis apa yang kamu alami atau rasakan. Tidak ada jawaban yang salah.' });
+  const count = h('div', { class: 'counter', 'aria-live': 'off' }, '0 / 3000');
+  msg.addEventListener('input', () => { count.textContent = msg.value.length + ' / 3000'; });
+  const urgent = h('input', { type: 'checkbox', id: 'urgent' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const btn = h('button', { class: 'btn primary', type: 'button' }, 'Kirim tanpa nama');
+
+  btn.addEventListener('click', async () => {
+    err.textContent = '';
+    if (!kat.value) { err.textContent = 'Pilih topik dulu.'; kat.focus(); return; }
+    if (msg.value.trim().length < 5) { err.textContent = 'Pesan terlalu singkat. Tulis minimal beberapa kata.'; msg.focus(); return; }
+    btn.disabled = true; btn.textContent = 'Mengirim...';
+    const { data, error } = await sb.rpc('create_thread', { p_kategori: kat.value, p_body: msg.value, p_mendesak: urgent.checked });
+    if (error) { err.textContent = friendly(error); btn.disabled = false; btn.textContent = 'Kirim tanpa nama'; return; }
+    showTicket(data);
+  });
+
+  $app.append(
+    h('h1', {}, 'Tulis pesan baru'),
+    h('p', { class: 'muted' }, 'Jangan menuliskan nama lengkapmu atau orang lain kalau ingin tetap anonim.'),
+    h('label', { for: 'kat' }, 'Topik'), kat,
+    h('label', { for: 'msg' }, 'Ceritamu'), msg, count,
+    h('label', { class: 'check' }, urgent, h('span', {}, 'Ini mendesak. Aku butuh dibaca secepatnya.')),
+    err,
+    h('div', { class: 'actions' }, btn, h('a', { class: 'btn', href: '#/' }, 'Batal')),
+    helpBox()
+  );
+}
+
+function showTicket(code) {
+  const copy = h('button', { class: 'btn small', type: 'button' }, 'Salin kode');
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(code); copy.textContent = 'Tersalin'; }
+    catch { copy.textContent = 'Blok dan salin manual'; }
+  });
+  $app.replaceChildren(
+    h('h1', {}, 'Pesanmu sudah terkirim'),
+    h('p', { class: 'lead' }, 'Ini kode tiketmu. Kode ini hanya muncul sekali dan tidak bisa dipulihkan, karena kami memang tidak tahu siapa kamu.'),
+    h('div', { class: 'ticket', role: 'group', 'aria-label': 'Kode tiket' },
+      h('div', { class: 'lbl' }, 'Kode tiketmu'),
+      h('div', { class: 'code' }, code),
+      copy
+    ),
+    h('div', { class: 'note' },
+      h('p', {}, h('strong', {}, 'Simpan sekarang: '), 'foto layar ini atau catat kodenya di tempat yang aman. Jangan bagikan ke siapa pun.'),
+      h('p', {}, 'Buka kembali aplikasi ini dan pilih "Baca balasan" dalam ' + CONFIG.JAM_BALAS + ' untuk melihat balasan Tim BK.')
+    ),
+    h('div', { class: 'actions' }, h('a', { class: 'btn primary', href: '#/cek' }, 'Ke halaman balasan'), h('a', { class: 'btn', href: '#/' }, 'Selesai')),
+    helpBox()
+  );
+  window.scrollTo(0, 0);
+}
+
+/* ---------- cek balasan (siswa) ---------- */
+function viewCek() {
+  if (!configured) { $app.append(configWarning()); return; }
+  const input = h('input', { type: 'text', id: 'code', placeholder: 'contoh: 7K3MQ-92QXA', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const btn = h('button', { class: 'btn primary', type: 'button' }, 'Buka percakapan');
+  const out = h('div');
+
+  async function load(code) {
+    err.textContent = '';
+    if (normCode(code).length < 10) { err.textContent = 'Kode tiket terdiri dari 10 huruf dan angka.'; return; }
+    btn.disabled = true; btn.textContent = 'Membuka...';
+    const { data, error } = await sb.rpc('get_thread', { p_code: code });
+    btn.disabled = false; btn.textContent = 'Buka percakapan';
+    if (error) { err.textContent = friendly(error); return; }
+    if (!data) { err.textContent = 'Kode tidak ditemukan. Periksa lagi huruf dan angkanya.'; out.replaceChildren(); return; }
+    renderStudentThread(out, code, data);
+  }
+  btn.addEventListener('click', () => load(input.value));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') load(input.value); });
+
+  $app.append(
+    h('h1', {}, 'Baca balasan'),
+    h('p', { class: 'muted' }, 'Masukkan kode tiket yang kamu terima saat mengirim pesan.'),
+    h('label', { for: 'code' }, 'Kode tiket'), input, err,
+    h('div', { class: 'actions' }, btn, h('a', { class: 'btn', href: '#/' }, 'Kembali')),
+    out
+  );
+}
+
+function renderStudentThread(out, code, t) {
+  const chat = h('div', { class: 'chat', 'aria-live': 'polite' }, t.messages.map(m =>
+    h('div', { class: 'bubble ' + m.sender },
+      h('div', { class: 'who' }, m.sender === 'siswa' ? 'Kamu' : 'Tim BK'),
+      m.body,
+      h('div', { class: 'when' }, fmt(m.created_at)))));
+  const hasReply = t.messages.some(m => m.sender === 'guru');
+  const reply = h('textarea', { maxlength: '3000', placeholder: 'Tulis balasanmu...' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const send = h('button', { class: 'btn primary', type: 'button' }, 'Kirim balasan');
+  send.addEventListener('click', async () => {
+    err.textContent = '';
+    if (!reply.value.trim()) { err.textContent = 'Tulis pesannya dulu.'; return; }
+    send.disabled = true; send.textContent = 'Mengirim...';
+    const { error } = await sb.rpc('student_reply', { p_code: code, p_body: reply.value });
+    if (error) { err.textContent = friendly(error); send.disabled = false; send.textContent = 'Kirim balasan'; return; }
+    const { data } = await sb.rpc('get_thread', { p_code: code });
+    if (data) renderStudentThread(out, code, data);
+  });
+  out.replaceChildren(
+    h('div', { class: 'card' },
+      h('div', { class: 'bar' },
+        h('h2', { style: 'margin:0' }, t.kategori),
+        h('span', { class: 'badge ' + t.status }, STATUS[t.status] || t.status)),
+      !hasReply && h('p', { class: 'muted', style: 'margin-top:10px' }, 'Belum ada balasan. Tim BK membalas paling lambat ' + CONFIG.JAM_BALAS + '. Simpan kodemu dan cek lagi nanti.'),
+      chat),
+    h('div', { class: 'card' }, h('label', { style: 'margin-top:0' }, 'Balas Tim BK'), reply, err, h('div', { class: 'actions' }, send)),
+    helpBox()
+  );
+}
+
+/* ---------- guru BK ---------- */
+async function viewGuru() {
+  if (!configured) { $app.append(configWarning()); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return guruLogin();
+  const { data: ok } = await sb.rpc('is_staff');
+  if (!ok) {
+    $app.replaceChildren(
+      h('h1', {}, 'Akun belum terdaftar'),
+      h('p', {}, 'Akun ini berhasil masuk, tetapi belum terdaftar sebagai anggota Tim BK. Minta admin menambahkannya.'),
+      h('div', { class: 'actions' }, logoutBtn()));
+    return;
+  }
+  guruList('semua');
+}
+
+function logoutBtn() {
+  const b = h('button', { class: 'btn small', type: 'button' }, 'Keluar');
+  b.addEventListener('click', async () => { await sb.auth.signOut(); location.hash = '#/'; route(); });
+  return b;
+}
+
+function guruLogin() {
+  const email = h('input', { type: 'email', id: 'em', autocomplete: 'username' });
+  const pass = h('input', { type: 'password', id: 'pw', autocomplete: 'current-password' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const btn = h('button', { class: 'btn primary', type: 'button' }, 'Masuk');
+  async function go() {
+    err.textContent = ''; btn.disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: pass.value });
+    btn.disabled = false;
+    if (error) { err.textContent = 'Email atau kata sandi salah.'; return; }
+    route();
+  }
+  btn.addEventListener('click', go);
+  pass.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $app.replaceChildren(
+    h('h1', {}, 'Masuk Tim BK'),
+    h('p', { class: 'muted' }, 'Khusus guru BK yang sudah didaftarkan.'),
+    h('label', { for: 'em' }, 'Email'), email,
+    h('label', { for: 'pw' }, 'Kata sandi'), pass, err,
+    h('div', { class: 'actions' }, btn, h('a', { class: 'btn', href: '#/' }, 'Kembali')));
+}
+
+async function guruList(filter) {
+  $app.replaceChildren(h('p', { class: 'muted' }, 'Memuat...'));
+  const { data, error } = await sb.from('threads').select('id,nomor,kategori,status,mendesak,created_at,updated_at')
+    .order('mendesak', { ascending: false }).order('updated_at', { ascending: false }).limit(300);
+  if (error) { $app.replaceChildren(h('div', { class: 'banner' }, friendly(error))); return; }
+
+  const counts = { semua: data.length, baru: 0, diproses: 0, selesai: 0 };
+  data.forEach(t => counts[t.status]++);
+  const shown = filter === 'semua' ? data : data.filter(t => t.status === filter);
+
+  const tabs = h('div', { class: 'tabs', role: 'group', 'aria-label': 'Saring berdasarkan status' },
+    ['semua', 'baru', 'diproses', 'selesai'].map(k => {
+      const b = h('button', { class: 'tab', type: 'button', 'aria-pressed': String(k === filter) }, (k === 'semua' ? 'Semua' : STATUS[k]) + ' (' + counts[k] + ')');
+      b.addEventListener('click', () => guruList(k));
+      return b;
+    }));
+  const refresh = h('button', { class: 'btn small', type: 'button' }, 'Muat ulang');
+  refresh.addEventListener('click', () => guruList(filter));
+
+  $app.replaceChildren(
+    h('div', { class: 'bar' }, h('h1', { style: 'margin:0' }, 'Kotak masuk'), h('div', { style: 'display:flex;gap:8px' }, refresh, logoutBtn())),
+    tabs,
+    shown.length === 0 && h('p', { class: 'muted' }, 'Belum ada pesan di kategori ini.'),
+    shown.map(t => {
+      const row = h('button', { class: 'row', type: 'button' },
+        h('div', { class: 'meta' },
+          h('strong', {}, 'Kasus #' + t.nomor),
+          h('span', { class: 'badge ' + t.status }, STATUS[t.status]),
+          t.mendesak && h('span', { class: 'badge mendesak' }, 'Mendesak')),
+        h('div', { class: 'small muted' }, t.kategori + ' · terakhir ' + fmt(t.updated_at)));
+      row.addEventListener('click', () => guruThread(t.id, filter));
+      return row;
+    }));
+}
+
+async function guruThread(id, backFilter) {
+  $app.replaceChildren(h('p', { class: 'muted' }, 'Memuat...'));
+  const [{ data: t, error: e1 }, { data: msgs, error: e2 }] = await Promise.all([
+    sb.from('threads').select('*').eq('id', id).single(),
+    sb.from('messages').select('sender,body,created_at').eq('thread_id', id).order('created_at')
+  ]);
+  if (e1 || e2) { $app.replaceChildren(h('div', { class: 'banner' }, friendly(e1 || e2))); return; }
+
+  const back = h('button', { class: 'btn small', type: 'button' }, 'Kembali ke kotak masuk');
+  back.addEventListener('click', () => guruList(backFilter));
+
+  const status = h('select', { 'aria-label': 'Status kasus', style: 'width:auto' },
+    Object.entries(STATUS).map(([k, v]) => h('option', { value: k, selected: k === t.status }, v)));
+  const saved = h('span', { class: 'small muted', 'aria-live': 'polite' });
+  status.addEventListener('change', async () => {
+    const { error } = await sb.from('threads').update({ status: status.value }).eq('id', id);
+    saved.textContent = error ? friendly(error) : 'Status disimpan';
+  });
+
+  const reply = h('textarea', { maxlength: '3000', placeholder: 'Tulis balasan sebagai Tim BK...' });
+  const err = h('p', { class: 'error', role: 'alert' });
+  const send = h('button', { class: 'btn primary', type: 'button' }, 'Kirim balasan');
+  send.addEventListener('click', async () => {
+    err.textContent = '';
+    if (!reply.value.trim()) { err.textContent = 'Tulis balasannya dulu.'; return; }
+    send.disabled = true; send.textContent = 'Mengirim...';
+    const { error } = await sb.from('messages').insert({ thread_id: id, sender: 'guru', body: reply.value.trim() });
+    if (error) { err.textContent = friendly(error); send.disabled = false; send.textContent = 'Kirim balasan'; return; }
+    if (t.status === 'baru') await sb.from('threads').update({ status: 'diproses' }).eq('id', id);
+    guruThread(id, backFilter);
+  });
+
+  $app.replaceChildren(
+    back,
+    h('div', { class: 'bar', style: 'margin-top:16px' },
+      h('h1', { style: 'margin:0;font-size:28px' }, 'Kasus #' + t.nomor),
+      t.mendesak && h('span', { class: 'badge mendesak' }, 'Mendesak')),
+    h('p', { class: 'muted' }, t.kategori + ' · masuk ' + fmt(t.created_at)),
+    h('div', { class: 'chat' }, msgs.map(m =>
+      h('div', { class: 'bubble ' + (m.sender === 'siswa' ? 'guru' : 'siswa') },
+        h('div', { class: 'who' }, m.sender === 'siswa' ? 'Siswa (anonim)' : 'Tim BK'),
+        m.body, h('div', { class: 'when' }, fmt(m.created_at))))),
+    h('div', { class: 'card' },
+      h('label', { style: 'margin-top:0' }, 'Balasan untuk siswa'), reply, err,
+      h('div', { class: 'actions' }, send)),
+    h('div', { class: 'bar' }, h('label', { style: 'margin:0' }, 'Status kasus'), status, saved)
+  );
+}
+
+route();
+</script>
+</body>
+</html>
